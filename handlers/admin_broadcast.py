@@ -20,15 +20,20 @@ router = Router(name="admin_broadcast_router")
 async def start_broadcast(callback: CallbackQuery, state: FSMContext, is_admin: bool = False) -> None:
     """Ommaviy xabar yuborish jarayonini boshlash"""
     if not is_admin:
-        await callback.answer("Kirish huquqi yo'q!", show_alert=True)
+        await callback.answer("⚠️ Kirish huquqi yo'q!", show_alert=True)
         return
 
     await state.set_state(BroadcastStates.waiting_for_message)
     text = (
-        "📢 <b>Ommaviy xabar yuborish (Broadcast)</b>\n\n"
-        "Barcha bot foydalanuvchilariga yubormoqchi bo'lgan xabaringizni yozib yoki "
-        "media (rasm, fayl, video) ko'rinishida yuboring:\n\n"
-        "<i>(Xabarni to'g'ridan-to'g'ri forward qilishingiz ham mumkin)</i>"
+        "📢 <b>OMMAVIY XABAR YUBORISH (BROADCAST)</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Barcha bot foydalanuvchilariga yetkazmoqchi bo'lgan xabaringizni yuboring:\n\n"
+        "• Oddiy matn\n"
+        "• Rasm yoki video (tavsifi bilan)\n"
+        "• PDF yoki boshqa fayl\n"
+        "• Boshqa kanaldan forward qilingan post\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "👇 <i>Xabarni shu yerga yuboring yoki 'Bekor qilish'ni bosing:</i>"
     )
     try:
         await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=get_cancel_kb())
@@ -50,8 +55,9 @@ async def process_broadcast_message(message: Message, session: AsyncSession, sta
     await state.set_state(BroadcastStates.confirm)
 
     preview_text = (
-        "📋 <b>Xabar ko'rinishi yuqorida qabul qilindi.</b>\n\n"
-        f"👥 <b>Yuboriladigan foydalanuvchilar soni:</b> {len(user_ids)} nafar\n\n"
+        "📋 <b>XABAR QABUL QILINDI VA TAYYOR!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 <b>Qamrov:</b> <b>{len(user_ids)} nafar</b> foydalanuvchi\n\n"
         "Haqiqatan ham ushbu xabarni barcha foydalanuvchilarga yuborishni tasdiqlaysizmi?"
     )
     await message.reply(
@@ -71,7 +77,7 @@ async def confirm_and_send_broadcast(
 ) -> None:
     """Xabarni barcha foydalanuvchilarga xavfsiz va tezkor yuborish"""
     if not is_admin:
-        await callback.answer("Kirish huquqi yo'q!", show_alert=True)
+        await callback.answer("⚠️ Kirish huquqi yo'q!", show_alert=True)
         return
 
     data = await state.get_data()
@@ -80,7 +86,7 @@ async def confirm_and_send_broadcast(
 
     if not from_chat_id or not message_id:
         await state.clear()
-        await callback.message.answer("Xatolik: xabar topilmadi.", reply_markup=get_admin_main_kb())
+        await callback.message.answer("⚠️ Xatolik: xabar topilmadi.", reply_markup=get_admin_main_kb())
         return
 
     user_ids = await get_all_user_ids(session)
@@ -88,7 +94,7 @@ async def confirm_and_send_broadcast(
 
     await state.clear()
     await callback.message.edit_text(
-        f"⏳ <b>Xabar yuborish boshlandi...</b>\nJami: {total_users} ta foydalanuvchi.",
+        f"⏳ <b>Xabar yuborish jarayoni ketmoqda...</b>\n\nQamrov: {total_users} ta foydalanuvchi.",
         parse_mode="HTML"
     )
 
@@ -104,10 +110,8 @@ async def confirm_and_send_broadcast(
                 message_id=message_id
             )
             success_count += 1
-            # Telegram flood limitsdan himoyalanish (sekundiga ~25 xabar)
-            await asyncio.sleep(0.04)
+            await asyncio.sleep(0.04)  # Flood cheklovini oldini olish
         except TelegramForbiddenError:
-            # Foydalanuvchi botni bloklagan
             blocked_count += 1
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
@@ -120,18 +124,17 @@ async def confirm_and_send_broadcast(
                 success_count += 1
             except Exception:
                 error_count += 1
-        except TelegramAPIError:
-            error_count += 1
-        except Exception:
+        except (TelegramAPIError, Exception):
             error_count += 1
 
     report_text = (
-        "✅ <b>Ommaviy xabar yuborish yakunlandi!</b>\n\n"
-        f"📊 <b>Natijalar:</b>\n"
-        f"• Yetkazildi: <b>{success_count}</b> ta\n"
-        f"• Botni bloklaganlar: <b>{blocked_count}</b> ta\n"
-        f"• Xatoliklar: <b>{error_count}</b> ta\n"
-        f"• Jami qamrov: <b>{total_users}</b> ta"
+        "✅ <b>OMMAVIY XABAR YUBORISH YAKUNLANDI!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🚀 <b>Yetkazildi:</b> <b>{success_count}</b> ta\n"
+        f"🚫 <b>Botni bloklaganlar:</b> <b>{blocked_count}</b> ta\n"
+        f"⚠️ <b>Xatoliklar:</b> <b>{error_count}</b> ta\n"
+        f"📊 <b>Jami foydalanuvchilar:</b> <b>{total_users}</b> ta\n"
+        "━━━━━━━━━━━━━━━━━━━━━━"
     )
     await callback.message.answer(
         text=report_text,

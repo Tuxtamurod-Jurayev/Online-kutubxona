@@ -26,13 +26,18 @@ async def show_admin_manage_menu(callback: CallbackQuery, state: FSMContext, is_
     """Adminlarni boshqarish menyusi"""
     await state.clear()
     if not is_admin:
-        await callback.answer("Kirish huquqi yo'q!", show_alert=True)
+        await callback.answer("⚠️ Kirish huquqi yo'q!", show_alert=True)
         return
 
     text = (
-        "👥 <b>Administratorlar boshqaruvi bo'limi</b>\n\n"
-        "Yangi admin qo'shishingiz yoki mavjud adminlar ro'yxatini ko'rib, "
-        "kerak bo'lsa ularni o'chirishingiz mumkin."
+        "👥 <b>ADMINISTRATORLARNI BOSHQARISH</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Ushbu bo'lim orqali siz:\n"
+        "• Yangi adminlarni qo'shishingiz (ID, @username yoki telefon raqam orqali)\n"
+        "• Mavjud barcha adminlar ro'yxatini ko'rishingiz\n"
+        "• Keraksiz adminlarni tizimdan o'chirishingiz mumkin.\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Kerakli bo'limni tanlang:"
     )
     try:
         await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=get_admin_manage_kb())
@@ -45,11 +50,16 @@ async def show_admin_manage_menu(callback: CallbackQuery, state: FSMContext, is_
 async def show_admins_list(callback: CallbackQuery, session: AsyncSession, is_admin: bool = False) -> None:
     """Mavjud barcha adminlar ro'yxati"""
     if not is_admin:
-        await callback.answer("Kirish huquqi yo'q!", show_alert=True)
+        await callback.answer("⚠️ Kirish huquqi yo'q!", show_alert=True)
         return
 
     admins = await get_all_admins(session)
-    text = f"📋 <b>Barcha administratorlar ro'yxati</b> (Jami: {len(admins)} ta):"
+    text = (
+        "📋 <b>BARCHA ADMINISTRATORLAR RO'YXATI</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📊 Jami adminlar: <b>{len(admins)} nafar</b>\n\n"
+        "O'chirmoqchi bo'lsangiz yonidagi 'O'chirish' tugmasini bosing:"
+    )
 
     try:
         await callback.message.edit_text(
@@ -70,18 +80,19 @@ async def show_admins_list(callback: CallbackQuery, session: AsyncSession, is_ad
 async def prompt_add_admin(callback: CallbackQuery, state: FSMContext, is_admin: bool = False) -> None:
     """Yangi admin kiritish so'rovi"""
     if not is_admin:
-        await callback.answer("Kirish huquqi yo'q!", show_alert=True)
+        await callback.answer("⚠️ Kirish huquqi yo'q!", show_alert=True)
         return
 
     await state.set_state(AdminManageStates.waiting_for_admin_input)
     prompt_text = (
-        "➕ <b>Yangi administrator qo'shish</b>\n\n"
-        "Quyidagi 3 ta usuldan birida ma'lumot kiriting:\n\n"
-        "1️⃣ <b>Telegram ID</b>: masalan <code>123456789</code>\n"
-        "2️⃣ <b>Username</b>: masalan <code>@foydalanuvchi_nik</code>\n"
-        "3️⃣ <b>Telefon raqami</b>: masalan <code>+998901234567</code>\n\n"
-        "<i>Eslatma: Agar @username yoki telefon raqam kiritsangiz, "
-        "admin botga birinchi marta kirganida uning Telegram ID raqami avtomatik bog'lanadi.</i>"
+        "➕ <b>YANGI ADMIN QO'SHISH</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Quyidagi 3 ta usuldan birida ma'lumot yuboring:\n\n"
+        "1️⃣ <b>Telegram ID:</b> masalan <code>123456789</code>\n"
+        "2️⃣ <b>Username:</b> masalan <code>@foydalanuvchi_nik</code>\n"
+        "3️⃣ <b>Telefon raqami:</b> masalan <code>+998901234567</code>\n\n"
+        "💡 <i>Eslatma: Agar @username yoki telefon raqam kiritsangiz, "
+        "admin botga birinchi marta murojaat qilganida uning Telegram ID raqami avtomatik bog'lanadi.</i>"
     )
     try:
         await callback.message.edit_text(text=prompt_text, parse_mode="HTML", reply_markup=get_cancel_kb())
@@ -104,13 +115,11 @@ async def process_add_admin_input(message: Message, session: AsyncSession, state
     elif val.startswith("+") or (val.startswith("998") and len(val) == 12):
         phone_number = clean_phone(val)
     elif val.isdigit():
-        # Agar 12 xonali va 998 bilan boshlansa telefon raqam
         if len(val) == 12 and val.startswith("998"):
             phone_number = val
         else:
             telegram_id = int(val)
     else:
-        # Username deb qabul qilamiz
         username = clean_username(val)
 
     try:
@@ -124,15 +133,16 @@ async def process_add_admin_input(message: Message, session: AsyncSession, state
 
         info = []
         if admin.telegram_id:
-            info.append(f"Telegram ID: <code>{admin.telegram_id}</code>")
+            info.append(f"🆔 Telegram ID: <code>{admin.telegram_id}</code>")
         if admin.username:
-            info.append(f"Username: @{admin.username}")
+            info.append(f"🌐 Username: @{admin.username}")
         if admin.phone_number:
-            info.append(f"Telefon: +{admin.phone_number}")
+            info.append(f"📱 Telefon: +{admin.phone_number}")
 
         await message.answer(
             text=(
-                "🎉 <b>Yangi admin muvaffaqiyatli qo'shildi!</b>\n\n"
+                "🎉 <b>Yangi admin muvaffaqiyatli biriktirildi!</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
                 + "\n".join(info)
             ),
             parse_mode="HTML",
@@ -140,7 +150,7 @@ async def process_add_admin_input(message: Message, session: AsyncSession, state
         )
     except Exception as e:
         await message.answer(
-            text=f"⚠️ Admin qo'shishda xatolik yuz berdi (balki bu admin allaqachon mavjuddir):\n{str(e)}",
+            text=f"⚠️ Admin qo'shishda xatolik yuz berdi:\n{str(e)}",
             reply_markup=get_cancel_kb()
         )
 
@@ -149,20 +159,24 @@ async def process_add_admin_input(message: Message, session: AsyncSession, state
 async def process_delete_admin(callback: CallbackQuery, session: AsyncSession, is_admin: bool = False) -> None:
     """Adminni o'chirish"""
     if not is_admin:
-        await callback.answer("Kirish huquqi yo'q!", show_alert=True)
+        await callback.answer("⚠️ Kirish huquqi yo'q!", show_alert=True)
         return
 
     admin_id = int(callback.data.split(":")[1])
     success = await delete_admin(session, admin_id)
 
     if success:
-        await callback.answer("Admin muvaffaqiyatli o'chirildi!", show_alert=True)
+        await callback.answer("✅ Admin muvaffaqiyatli o'chirildi!", show_alert=True)
     else:
-        await callback.answer("Admin topilmadi yoki o'chirilmadi.", show_alert=True)
+        await callback.answer("⚠️ Admin topilmadi yoki o'chirilmadi.", show_alert=True)
 
-    # Ro'yxatni yangilab ko'rsatish
     admins = await get_all_admins(session)
-    text = f"📋 <b>Barcha administratorlar ro'yxati</b> (Jami: {len(admins)} ta):"
+    text = (
+        "📋 <b>BARCHA ADMINISTRATORLAR RO'YXATI</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📊 Jami adminlar: <b>{len(admins)} nafar</b>\n\n"
+        "O'chirmoqchi bo'lsangiz yonidagi 'O'chirish' tugmasini bosing:"
+    )
 
     try:
         await callback.message.edit_text(

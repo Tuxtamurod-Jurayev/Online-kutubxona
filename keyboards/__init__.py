@@ -3,6 +3,7 @@ from keyboards.user_kb import (
     get_retry_search_kb,
     get_single_book_kb,
     get_search_results_kb,
+    get_top_books_kb,
     get_phone_auth_kb
 )
 from keyboards.admin_kb import (
@@ -22,6 +23,7 @@ __all__ = [
     "get_retry_search_kb",
     "get_single_book_kb",
     "get_search_results_kb",
+    "get_top_books_kb",
     "get_phone_auth_kb",
     "get_admin_main_kb",
     "get_book_confirm_kb",

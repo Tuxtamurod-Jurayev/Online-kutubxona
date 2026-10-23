@@ -66,6 +66,22 @@ def clean_phone(phone: str | None) -> str | None:
     return cleaned
 
 
+def phones_match(p1: str | None, p2: str | None) -> bool:
+    """
+    Telefon raqamlarini mosligini tekshirish.
+    O'zbekiston raqamlarida oxirgi 9 ta raqam bo'yicha solishtiriladi (masalan: 930406364).
+    """
+    if not p1 or not p2:
+        return False
+    c1 = clean_phone(p1)
+    c2 = clean_phone(p2)
+    if not c1 or not c2:
+        return False
+    if len(c1) >= 9 and len(c2) >= 9:
+        return c1[-9:] == c2[-9:]
+    return c1 == c2
+
+
 def clean_username(username: str | None) -> str | None:
     """Username'dan @ belgisini olib tashlash va kichik harfga o'tkazish"""
     if not username:
@@ -90,7 +106,6 @@ async def check_and_link_admin_by_username(session: AsyncSession, telegram_id: i
     if not cleaned_user:
         return None
 
-    # Katta-kichik harflarni farqlamasdan username qidirish
     stmt = select(Admin).where(func.lower(Admin.username) == cleaned_user)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
@@ -105,24 +120,26 @@ async def check_and_link_admin_by_username(session: AsyncSession, telegram_id: i
     return None
 
 
-async def check_and_link_admin_by_phone(session: AsyncSession, telegram_id: int, phone_number: str) -> Admin | None:
+async def check_and_link_admin_by_phone(
+    session: AsyncSession,
+    telegram_id: int,
+    phone_number: str,
+    username: str | None = None
+) -> Admin | None:
     """
     Telefon raqami bo'yicha adminni tekshirish va uning telegram_id raqamini bog'lash.
     """
-    cleaned_p = clean_phone(phone_number)
-    if not cleaned_p:
-        return None
-
     stmt = select(Admin)
     result = await session.execute(stmt)
     admins = result.scalars().all()
 
     for admin in admins:
-        if admin.phone_number and clean_phone(admin.phone_number) == cleaned_p:
-            if admin.telegram_id != telegram_id:
-                admin.telegram_id = telegram_id
-                await session.commit()
-                await session.refresh(admin)
+        if admin.phone_number and phones_match(admin.phone_number, phone_number):
+            admin.telegram_id = telegram_id
+            if username:
+                admin.username = clean_username(username)
+            await session.commit()
+            await session.refresh(admin)
             return admin
 
     return None
@@ -134,9 +151,21 @@ async def add_new_admin(
     username: str | None = None,
     phone_number: str | None = None
 ) -> Admin:
-    """Yangi admin qo'shish"""
+    """Yangi admin qo'shish yoki mavjud bo'lsa yangilash"""
     cleaned_u = clean_username(username)
     cleaned_p = clean_phone(phone_number)
+
+    # Agar allaqachon shu telegram_id bilan admin bo'lsa
+    if telegram_id:
+        existing = await check_admin_by_id(session, telegram_id)
+        if existing:
+            if cleaned_u:
+                existing.username = cleaned_u
+            if cleaned_p:
+                existing.phone_number = cleaned_p
+            await session.commit()
+            await session.refresh(existing)
+            return existing
 
     admin = Admin(
         telegram_id=telegram_id,

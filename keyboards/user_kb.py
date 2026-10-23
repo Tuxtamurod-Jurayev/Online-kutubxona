@@ -3,37 +3,53 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from database.models import Book
 
 
-def get_start_kb() -> InlineKeyboardMarkup:
-    """Boshlang'ich ekran uchun inline tugma"""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔍 Kitobni izlash", callback_data="search_book")
-            ]
+def get_start_kb(is_admin: bool = False) -> InlineKeyboardMarkup:
+    """Interaktiv boshlang'ich menyu tugmalari"""
+    buttons = [
+        [
+            InlineKeyboardButton(text="🔍 Kitob qidirish", callback_data="search_book"),
+            InlineKeyboardButton(text="🔥 Top kitoblar", callback_data="top_books")
         ]
-    )
+    ]
+
+    # Agar foydalanuvchi administrator bo'lsa, maxsus boshqaruv tugmasi chiqadi
+    if is_admin:
+        buttons.append([
+            InlineKeyboardButton(text="⚡️ Administrator paneli 👑", callback_data="admin_open_from_start")
+        ])
+
+    buttons.append([
+        InlineKeyboardButton(text="ℹ️ Bot haqida", callback_data="about_bot")
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_retry_search_kb() -> InlineKeyboardMarkup:
-    """Kitob topilmaganda yoki qayta qidirish uchun inline tugma"""
+    """Kitob topilmaganda yoki qayta qidirish uchun inline tugmalar"""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔍 Qayta izlash", callback_data="search_book")
+                InlineKeyboardButton(text="🔍 Qayta qidirish", callback_data="search_book"),
+                InlineKeyboardButton(text="🔥 Top kitoblar", callback_data="top_books")
+            ],
+            [
+                InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="back_to_home")
             ]
         ]
     )
 
 
 def get_single_book_kb(book_id: int) -> InlineKeyboardMarkup:
-    """1 ta kitob topilganda uning ostida chiquvchi tugmalar"""
+    """1 ta kitob kartochkasi ostidagi tugmalar"""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="📥 PDF yuklab olish", callback_data=f"download_pdf:{book_id}")
             ],
             [
-                InlineKeyboardButton(text="🔍 Boshqa kitob izlash", callback_data="search_book")
+                InlineKeyboardButton(text="🔍 Boshqa kitob qidirish", callback_data="search_book"),
+                InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="back_to_home")
             ]
         ]
     )
@@ -53,10 +69,9 @@ def get_search_results_kb(
     start_index = (page - 1) * per_page
 
     for i, book in enumerate(books, start=start_index + 1):
-        btn_text = f"{i}. {book.title} — {book.author}"
-        # Telegram inline tugma matni 64 belgigacha qisqartirish
-        if len(btn_text) > 60:
-            btn_text = btn_text[:57] + "..."
+        btn_text = f"📖 {i}. {book.title} — {book.author}"
+        if len(btn_text) > 55:
+            btn_text = btn_text[:52] + "..."
         buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f"view_book:{book.id}")])
 
     # Paginatsiya tugmalari
@@ -70,9 +85,30 @@ def get_search_results_kb(
             nav_buttons.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"page:{page+1}"))
         buttons.append(nav_buttons)
 
-    # Qayta izlash tugmasi
-    buttons.append([InlineKeyboardButton(text="🔍 Yangi qidiruv", callback_data="search_book")])
+    # Qidiruv va uyga qaytish
+    buttons.append([
+        InlineKeyboardButton(text="🔍 Yangi qidiruv", callback_data="search_book"),
+        InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="back_to_home")
+    ])
 
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_top_books_kb(books: List[Book]) -> InlineKeyboardMarkup:
+    """Eng ko'p yuklangan top kitoblar ro'yxati tugmalari"""
+    buttons = []
+    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+    for i, book in enumerate(books):
+        m = medals[i] if i < len(medals) else "📖"
+        btn_text = f"{m} {book.title} ({book.downloads_count} marta)"
+        if len(btn_text) > 55:
+            btn_text = btn_text[:52] + "..."
+        buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f"view_book:{book.id}")])
+
+    buttons.append([
+        InlineKeyboardButton(text="🔍 Kitob qidirish", callback_data="search_book"),
+        InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="back_to_home")
+    ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -80,7 +116,7 @@ def get_phone_auth_kb() -> ReplyKeyboardMarkup:
     """Admin bo'lish uchun telefon raqamini tasdiqlash reply tugmasi"""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📱 Raqamni tasdiqlash", request_contact=True)],
+            [KeyboardButton(text="📱 Telefon raqamni yuborish", request_contact=True)],
             [KeyboardButton(text="❌ Bekor qilish")]
         ],
         resize_keyboard=True,
