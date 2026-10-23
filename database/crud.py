@@ -5,6 +5,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import User, Admin, Book
 
 
+def normalize_uzbek_text(text: str) -> str:
+    """
+    O'zbek tilidagi turli xil apostrof va belgilarni (', ‘, ’, ʻ, ʼ, `)
+    birlashtirish va bo'shliqlarni tozalash.
+    """
+    if not text:
+        return ""
+    cleaned = text
+    for apostrophe in ["‘", "’", "ʻ", "ʼ", "`", "´"]:
+        cleaned = cleaned.replace(apostrophe, "'")
+    return " ".join(cleaned.split())
+
+
 # ==============================================================
 # FOYDALANUVCHILAR (USERS) BILAN ISHLASH
 # ==============================================================
@@ -155,7 +168,6 @@ async def add_new_admin(
     cleaned_u = clean_username(username)
     cleaned_p = clean_phone(phone_number)
 
-    # Agar allaqachon shu telegram_id bilan admin bo'lsa
     if telegram_id:
         existing = await check_admin_by_id(session, telegram_id)
         if existing:
@@ -210,14 +222,20 @@ async def search_books(
 ) -> Tuple[List[Book], int]:
     """
     Kitob nomi va muallifi bo'yicha qisman moslik (ILIKE / LIKE) bilan qidirish.
-    Natija va umumiy topilgan sonini qaytaradi.
+    O'zbek alifbosi apostroflarini normalizatsiya qilish orqali qidiruvni aniqligini oshiradi.
     """
-    clean_query = query.strip()
-    pattern = f"%{clean_query}%"
+    raw_query = query.strip()
+    norm_query = normalize_uzbek_text(raw_query)
+
+    no_quotes = norm_query.replace("'", "%")
+    fuzzy_pattern = f"%{no_quotes}%"
+    standard_pattern = f"%{norm_query}%"
 
     filter_cond = or_(
-        Book.title.ilike(pattern),
-        Book.author.ilike(pattern)
+        Book.title.ilike(standard_pattern),
+        Book.author.ilike(standard_pattern),
+        Book.title.ilike(fuzzy_pattern),
+        Book.author.ilike(fuzzy_pattern)
     )
 
     # Jami sonini hisoblash
@@ -253,13 +271,13 @@ async def add_book(
     photo_file_id: str,
     pdf_file_id: str
 ) -> Book:
-    """Yangi kitob qo'shish"""
+    """Yangi kitob qo'shish (matnlarni normalizatsiya qilish bilan)"""
     book = Book(
-        title=title.strip(),
-        author=author.strip(),
+        title=normalize_uzbek_text(title),
+        author=normalize_uzbek_text(author),
         description=description.strip(),
-        photo_file_id=photo_file_id,
-        pdf_file_id=pdf_file_id,
+        photo_file_id=photo_file_id.strip(),
+        pdf_file_id=pdf_file_id.strip(),
         downloads_count=0,
         created_at=datetime.now(timezone.utc)
     )
@@ -280,6 +298,10 @@ async def update_book(session: AsyncSession, book_id: int, **kwargs) -> Book | N
 
     for key, val in kwargs.items():
         if hasattr(book, key) and val is not None:
+            if key in ["title", "author"]:
+                val = normalize_uzbek_text(val)
+            elif key == "description":
+                val = val.strip()
             setattr(book, key, val)
 
     await session.commit()

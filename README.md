@@ -1,51 +1,51 @@
 # 📚 Elektron Kutubxona va Kitob Qidiruv Telegram Boti
 
-Ushbu loyiha **Telegram Bot API**, **Python (Aiogram 3.x)** va **SQLAlchemy (Asyncio)** texnologiyalari asosida Texnik Topshiriq (TZ) talablariga 100% mos ravishda ishlab chiqilgan.
+Ushbu loyiha **Telegram Bot API**, **Python (Aiogram 3.x)** va **SQLAlchemy (Asyncio)** texnologiyalari asosida Texnik Topshiriq (TZ) talablariga 100% mos ravishda to'liq ishlab chiqilgan va optimallashtirilgan.
 
 Bot foydalanuvchilarga kitob nomi yoki muallifi bo'yicha elektron kitoblarni (PDF) tezkor topish, annotatsiyasi bilan tanishish va yuklab olish imkonini beradi. Administratorlar uchun esa ko'p bosqichli xavfsizlik (3 xil usulda autentifikatsiya), kitob qo'shish/tahrirlash/o'chirish, statistika va ommaviy xabar yuborish (broadcast) boshqaruv paneli mavjud.
 
 ---
 
-## 🚀 Asosiy imkoniyatlar
+## 🌟 Asosiy imkoniyatlar va Optimallashuvlar
 
 ### 1. Foydalanuvchi qismi (User Flow)
-- **`/start` ekrani:** Foydalanuvchi ma'lumotlari (`telegram_id`, `username`, `full_name`) avtomatik bazaga yoziladi va `[ 🔍 Kitobni izlash ]` inline tugmasi taqdim etiladi.
-- **Tezkor qidiruv (FSM):** Foydalanuvchi kitob nomi yoki muallif ismini yozadi. Qidiruv katta-kichik harflarni farqlamasdan qismiy moslik (`ILIKE`) bo'yicha amalga oshiriladi.
-- **Qidiruv natijalari:**
-  - **1 ta kitob topilsa:** Kitob muqovasi (rasmi), nomi, muallifi, annotatsiyasi va uning ostida `[ 📥 PDF yuklab olish ]` hamda `[ 🔍 Boshqa kitob izlash ]` tugmalari chiqadi.
-  - **Bir nechta kitob topilsa:** Barcha topilgan kitoblar ro'yxati va qulay sahifalash (paginatsiya) bilan inline tugmalarda chiqariladi.
-  - **Kitob topilmasa:** *"Kechirasiz, so'rovingiz bo'yicha kitob topilmadi..."* xabari va `[ 🔍 Qayta izlash ]` tugmasi chiqadi.
-- **Tezkor PDF yuklab olish:** Fayllar mahalliy diskda emas, Telegram serverlarida saqlanadi (`file_id` orqali), bu esa 50 MB gacha bo'lgan kitoblarni soniyaning ulushlarida yetkazib beradi va `downloads_count` hisoblagichini oshiradi.
+- **`/start` ekrani:** Foydalanuvchi ma'lumotlari (`telegram_id`, `username`, `full_name`) avtomatik bazaga yoziladi va `[ 🔍 Kitob qidirish ]` inline tugmasi taqdim etiladi. Adminlar uchun avtomatik `[ ⚡️ Administrator paneli 👑 ]` tugmasi chiqadi.
+- **Aqlli qidiruv (Smart Fuzzy Search):** O'zbek alifbosidagi turli xil apostroflar (`'`, `‘`, `’`, `ʻ`, `ʼ`, `` ` ``) va imlo o'ziga xosliklarini normalizatsiya qilib qidiradi.
+- **Inline Mode:** Foydalanuvchilar istalgan chatda (guruh, do'stlar) `@online_libraries_bot kitob_nomi` deb yozish orqali kitoblarni qidirib, to'g'ridan-to'g'ri ulasha oladilar.
+- **Deep Linking:** Guruhlarga yuborilgan kitoblardagi "Yuklab olish" tugmasi bosilganda bot avtomatik `/start book_{id}` orqali ochilib, o'sha kitobni darhol foydalanuvchiga taqdim etadi.
+- **Tezkor PDF yuklab olish:** Fayllar mahalliy diskda emas, Telegram serverlarida saqlanadi (`file_id` orqali), bu esa 50 MB gacha bo'lgan kitoblarni 1 soniyada yetkazib beradi va `downloads_count` hisoblagichini oshiradi.
+- **Menyu tugmalari:**
+  - `/start` — 📚 Bosh menyu va qidiruv
+  - `/search` — 🔍 Kitob qidirish
+  - `/top` — 🔥 Eng ko'p o'qilgan kitoblar
+  - `/admin` — ⚡️ Administrator paneli
+  - `/help` — ℹ️ Qo'llanma va yordam
 
 ### 2. Administrator tizimi va Xavfsizlik
 - **3 xil usulda Autentifikatsiya (Middleware):**
   1. **Telegram ID (`user_id`):** Bazadagi adminlar ro'yxati yoki `.env` dagi `ADMIN_IDS` superadminlar bilan solishtiriladi.
-  2. **Username (`@nik`):** Bazaga `@username` orqali kiritilgan admin birinchi marta `/admin` yozganida uning Telegram ID raqami avtomatik bog'lab qo'yiladi.
-  3. **Telefon raqami (`phone_number`):** ID yoki username orqali topilmagan foydalanuvchidan `[ 📱 Raqamni tasdiqlash ]` tugmasi orqali kontakt so'raladi. Yuborilgan raqam bazaga mos kelsa, Telegram ID bog'lanib, admin paneli ochiladi.
+  2. **Username (`@nik`):** Bazaga `@username` orqali kiritilgan admin birinchi marta murojaat qilganda uning Telegram ID raqami avtomatik bog'lab qo'yiladi.
+  3. **Telefon raqami (`phone_number`):** ID yoki username orqali topilmagan foydalanuvchidan `[ 📱 Telefon raqamni yuborish ]` tugmasi orqali kontakt yoki matn so'raladi. Yuborilgan raqam bazaga mos kelsa, Telegram ID bog'lanib, admin paneli ochiladi.
 - **Admin paneli funksiyalari (`/admin`):**
-  - **➕ Kitob qo'shish (FSM):**
-    - 1-qadam: Kitob nomi
-    - 2-qadam: Muallif ismi
-    - 3-qadam: Kitob muqovasi (rasm)
-    - 4-qadam: Kitob annotatsiyasi (Telegram cheklovi hisobga olingan holda **950 belgidan oshmasligi** nazorat qilinadi)
-    - 5-qadam: Kitobning PDF fayli
-    - Tasdiqlash va saqlash
-  - **✏️ Kitoblarni boshqarish:** Barcha kitoblar ro'yxati, istalgan maydonni alohida tahrirlash (nomi, muallifi, tavsifi, muqovasi, PDF fayli) yoki bazadan butunlay o'chirish.
+  - **➕ Kitob qo'shish (FSM [1/5 - 5/5]):** Nomi ➡️ Muallifi ➡️ Muqovasi ➡️ Mazmuni (**950 belgidan oshmasligi** qat'iy nazorat qilinadi) ➡️ PDF fayli ➡️ Tasdiqlash.
+  - **✏️ Kitoblarni boshqarish:** Barcha kitoblar ro'yxati, istalgan maydonni alohida tahrirlash yoki o'chirish.
   - **👥 Adminlar boshqaruvi:** Yangi admin qo'shish (Telegram ID, `@username` yoki `+998...` telefon raqami orqali) va adminlarni o'chirish.
   - **📊 Statistika:** Jami foydalanuvchilar, 24 soatdagi yangilar, jami kitoblar, jami yuklab olishlar va eng ko'p o'qilgan Top-5 kitoblar.
   - **📢 Xabar yuborish (Broadcast):** Barcha foydalanuvchilarga matn yoki media xabarlar yuborish, bloklaganlarni chetlab o'tish va batafsil hisobot berish.
 - **Anti-flood / Rate Limiting Middleware:** Soniyasiga 1-2 tadan ko'p so'rov yuborishdan himoyalangan.
+- **Global Error Handler:** Kutilmagan xatoliklar yuz berganda bot to'xtab qolmaydi, xato loglanadi va foydalanuvchiga muloyim javob beriladi.
 
 ---
 
 ## 🛠 Texnologiyalar steki
 
-- **Til:** Python 3.11+ (Python 3.13 qo'llab-quvvatlanadi)
-- **Telegram Bot Framework:** `aiogram 3.31+` (Asinxron FSM, Middlewares, Router)
+- **Til:** Python 3.11+ (Python 3.13)
+- **Telegram Bot Framework:** `aiogram 3.31+` (Asinxron FSM, Middlewares, Router, Inline Query)
 - **ORM / DB Engine:** `SQLAlchemy 2.0 (Asyncio)` + `asyncpg` + `aiosqlite`
 - **Ma'lumotlar bazasi:**
-  - Ishlab chiqish / Sinov (Lokal): `SQLite` (`sqlite+aiosqlite:///bot.db`)
-  - Ishlab chiqarish (Production): `PostgreSQL` yoki `Supabase` (`postgresql+asyncpg://...`) + `pg_trgm` kengaytmasi
+  - Lokal sinov uchun: `SQLite (WAL rejimi bilan)`
+  - Production uchun: `PostgreSQL` / `Supabase` + `pg_trgm` kengaytmasi
+- **Deployment:** Docker & docker-compose
 
 ---
 
@@ -54,100 +54,63 @@ Bot foydalanuvchilarga kitob nomi yoki muallifi bo'yicha elektron kitoblarni (PD
 ```text
 online-kutubxona/
 ├── .env.example          # Namuna muhit o'zgaruvchilari
-├── .gitignore            # Git e'tiborsiz qoldiradigan fayllar
+├── .env                  # Maxfiy sozlamalar (git ga kirmaydi)
+├── .gitignore            # Git istisno fayllari
+├── Dockerfile            # Docker konteynerlashtirish fayli
+├── docker-compose.yml    # Docker Compose orqali 1-click ishga tushirish
 ├── requirements.txt      # Kerakli Python kutubxonalari
 ├── schema.sql            # Supabase / PostgreSQL uchun to'liq SQL script
 ├── config.py             # Sozlamalar konfiguratsiyasi (pydantic-settings)
 ├── bot.py                # Asosiy ishga tushirish fayli
 ├── database/
-│   ├── base.py           # DB Engine, async session maker, init_db
-│   ├── models.py         # User, Admin, Book SQLAlchemy modellari
-│   └── crud.py           # Bazadagi barcha amallar (qidiruv, adminlar, statistika)
+│   ├── base.py           # DB Engine, connection pool, init_db, close_db
+│   ├── models.py         # User, Admin, Book modellari
+│   └── crud.py           # Aqlli qidiruv, CRUD amallari, statistika
 ├── middlewares/
-│   ├── db.py             # Har bir so'rovga DB sessiyasini beruvchi middleware
+│   ├── db.py             # DB sessiyasi middleware'i
 │   ├── throttling.py     # Anti-flood / Rate limiting middleware
-│   └── auth.py           # Admin autentifikatsiya middleware'i (3 usul)
+│   └── auth.py           # Admin autentifikatsiyasi
 ├── filters/
-│   └── admin.py          # Admin huquqini tekshiruvchi filtr
+│   └── admin.py          # Admin filtri
 ├── states/
-│   └── states.py         # FSM holatlari (qidiruv, kitob qo'shish, admin boshqaruvi)
+│   └── states.py         # FSM holatlari
 ├── keyboards/
-│   ├── user_kb.py        # Foydalanuvchi inline va reply tugmalari
-│   └── admin_kb.py       # Admin paneli inline tugmalari
+│   ├── user_kb.py        # Foydalanuvchi tugmalari va inline menyu
+│   └── admin_kb.py       # Admin paneli boshqaruv tugmalari
 └── handlers/
-    ├── user.py           # /start, kitob qidiruv, natijalarni ko'rish, PDF yuklab olish
-    ├── admin_panel.py    # /admin, telefon autentifikatsiyasi, bosh menyu, statistika
-    ├── admin_books.py    # Kitob qo'shish (FSM), tahrirlash, o'chirish
+    ├── user.py           # /start, /search, /top, /help, inline query, yuklab olish
+    ├── admin_panel.py    # /admin, telefon autentifikatsiyasi, statistika
+    ├── admin_books.py    # Kitob qo'shish, tahrirlash, o'chirish
     ├── admin_manage.py   # Admin qo'shish va o'chirish
-    └── admin_broadcast.py# Ommaviy xabar yuborish
+    └── admin_broadcast.py# Ommaviy bildirishnoma tarqatish
 ```
 
 ---
 
 ## ⚙️ O'rnatish va Ishga tushirish
 
-### 1. Virtual muhitni faollashtirish va kutubxonalarni o'rnatish
+### 1-usul: Oddiy ishga tushirish (Local)
 
 ```bash
-# Windows (PowerShell):
+# Virtual muhitni faollashtirish
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
+# Kutubxonalarni o'rnatish
 pip install -r requirements.txt
+
+# Botni ishga tushirish
+python bot.py
 ```
 
-### 2. Sozlamalarni sozlash (`.env`)
-
-Loyiha ildizida `.env` faylini yarating (`.env.example` dan nusxa oling):
-
-```env
-# Telegram Bot Token (@BotFather orqali olinadi)
-BOT_TOKEN=1234567890:ABCdefGhIJKlmNoPQRstuVWXyz
-
-# Super Admin Telegram ID raqamingiz (vergul bilan bir nechta yozish mumkin)
-ADMIN_IDS=123456789
-
-# Ma'lumotlar bazasi URL manzili
-# Lokal SQLite uchun:
-DATABASE_URL=sqlite+aiosqlite:///bot.db
-
-# Yoki PostgreSQL / Supabase uchun:
-# DATABASE_URL=postgresql+asyncpg://postgres:parol@db.supabase.co:5432/postgres
-
-# Rate limit (sekundiga xabarlar chegarasi)
-RATE_LIMIT=1.0
-```
-
-> **Maslahat:** O'zingizning Telegram ID raqamingizni bilish uchun Telegramda `@userinfobot` ga `/start` yuborishingiz mumkin.
-
-### 3. Ma'lumotlar bazasini sozlash
-
-- **Agar SQLite ishlatilsa:** Hech qanday qo'shimcha harakat talab etilmaydi! Bot birinchi marta ishga tushganda `bot.db` faylini va barcha jadvallarni o'zi avtomatik yaratadi.
-- **Agar PostgreSQL yoki Supabase ishlatilsa:**
-  `schema.sql` fayli ichidagi SQL so'rovlarini Supabase SQL Editor'ida yoki `psql` orqali ishga tushiring. Bu `pg_trgm` kengaytmasini va trigram indekslarini yaratadi.
-
-### 4. Botni ishga tushirish
+### 2-usul: Docker orqali ishga tushirish (Production)
 
 ```bash
-python bot.py
+docker compose up -d --build
 ```
 
 ---
 
-## 📖 Botdan foydalanish yo'riqnomasi
-
-### Oddiy foydalanuvchi sifatida:
-1. Botga `/start` yuboring.
-2. `[ 🔍 Kitobni izlash ]` tugmasini bosing.
-3. Kitob nomi (masalan: *"O'tkan kunlar"*) yoki muallif nomini (masalan: *"Abdulla Qodiriy"*) yuboring.
-4. Topilgan kitobning `[ 📥 PDF yuklab olish ]` tugmasini bosing.
-
-### Administrator sifatida:
-1. Botga `/admin` buyrug'ini yuboring.
-2. Agar `.env` da ID ko'rsatilgan bo'lsa, to'g'ridan-to'g'ri admin panel ochiladi.
-3. Agar ID ko'rsatilmagan bo'lsa, `[ 📱 Raqamni tasdiqlash ]` tugmasini bosing (agar raqamingiz bazadagi adminlar ro'yxatida bo'lsa, sizga ruxsat beriladi).
-4. Menyu orqali:
-   - **➕ Kitob qo'shish:** Nomi -> Muallif -> Rasm -> Annotatsiya (950 belgigacha) -> PDF fayl -> Saqlash.
-   - **✏️ Kitoblarni boshqarish:** Baza kitoblarini ko'rish, tahrirlash yoki o'chirish.
-   - **👥 Adminlar boshqaruvi:** Yangi adminlarni ID, username yoki telefon orqali biriktirish.
-   - **📊 Statistika:** Foydalanuvchilar, yuklashlar va Top-5 kitoblar hisobotini ko'rish.
-   - **📢 Broadcast:** Foydalanuvchilarga ommaviy bildirishnoma tarqatish.
+## 🔗 Havolalar
+- **GitHub repozitoriyasi:** [https://github.com/Tuxtamurod-Jurayev/Online-kutubxona](https://github.com/Tuxtamurod-Jurayev/Online-kutubxona)
+- **Telegram bot:** [@online_libraries_bot](https://t.me/online_libraries_bot)

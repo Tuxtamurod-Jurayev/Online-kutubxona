@@ -1,6 +1,12 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineQuery,
+    InlineQueryResultArticle,
+    InputTextMessageContent
+)
+from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,17 +44,22 @@ def get_welcome_text(full_name: str) -> str:
         "• 🔍 Kitob nomi yoki muallif bo'yicha tezkor qidiruv\n"
         "• 📖 Kitob haqida qisqacha ma'lumot va muqovasi\n"
         "• 📥 To'liq PDF variantini 1 soniyada yuklab olish\n"
+        "• 💬 Istalgan chatda <code>@online_libraries_bot</code> orqali inline qidiruv\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "👇 <i>Kerakli bo'limni tanlang:</i>"
     )
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, session: AsyncSession, state: FSMContext, is_admin: bool = False) -> None:
+async def cmd_start(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext,
+    command: CommandObject,
+    is_admin: bool = False
+) -> None:
     """
-    /start buyrug'i:
-    1. Foydalanuvchi ma'lumotlari bazaga saqlanadi.
-    2. Chiroyli interaktiv qutlov matni va tugmalar taqdim etiladi.
+    /start buyrug'i (Deep Linking qo'llab-quvvatlaydi, masalan: /start book_1)
     """
     await state.clear()
 
@@ -59,8 +70,105 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext, 
         full_name=message.from_user.full_name
     )
 
+    # 1. Deep linking tekshiruvi (boshqa chatdan kitob ulashilganda)
+    args = command.args
+    if args and args.startswith("book_"):
+        try:
+            book_id = int(args.replace("book_", ""))
+            book = await get_book_by_id(session, book_id)
+            if book:
+                caption = (
+                    f"📖 <b>{book.title}</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"✍️ <b>Muallif:</b> {book.author}\n"
+                    f"📥 <b>Yuklab olingan:</b> {book.downloads_count} marta\n\n"
+                    f"📝 <b>Qisqacha mazmuni:</b>\n{book.description}\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "👇 <i>Kitobni yuklab olish uchun tugmani bosing:</i>"
+                )
+                try:
+                    await message.answer_photo(
+                        photo=book.photo_file_id,
+                        caption=caption,
+                        parse_mode="HTML",
+                        reply_markup=get_single_book_kb(book.id)
+                    )
+                    return
+                except Exception:
+                    await message.answer(
+                        text=caption,
+                        parse_mode="HTML",
+                        reply_markup=get_single_book_kb(book.id)
+                    )
+                    return
+        except Exception:
+            pass
+
+    # 2. Standart xush kelibsiz xabari
     text = get_welcome_text(message.from_user.full_name)
     await message.answer(text=text, parse_mode="HTML", reply_markup=get_start_kb(is_admin=is_admin))
+
+
+@router.message(Command("search"))
+async def cmd_search(message: Message, state: FSMContext) -> None:
+    """/search buyrug'i orqali qidiruvni boshlash"""
+    await state.set_state(BookSearchStates.waiting_for_query)
+    text = (
+        "🔍 <b>Kitob qidirish bo'limi</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Iltimos, qidirayotgan kitobingiz <b>nomini</b> yoki <b>muallif ism-sharifini</b> yozib yuboring:\n\n"
+        "💡 <i>Masalan: <code>O'tkan kunlar</code> yoki <code>Abdulla Qodiriy</code></i>"
+    )
+    await message.answer(text=text, parse_mode="HTML", reply_markup=get_retry_search_kb())
+
+
+@router.message(Command("top"))
+async def cmd_top(message: Message, session: AsyncSession) -> None:
+    """/top buyrug'i orqali eng sara kitoblarni ko'rish"""
+    top_books = await get_top_downloaded_books(session, limit=5)
+    if not top_books:
+        await message.answer("🔥 Hozircha bazada kitoblar yuklab olinmagan.", reply_markup=get_retry_search_kb())
+        return
+
+    text = (
+        "🔥 <b>ENG KO'P O'QILGAN TOP KITOBLAR</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Kitobxonlarimiz tomonidan eng ko'p yuklab olingan sara asarlar:\n\n"
+        "Batafsil ma'lumot va yuklab olish uchun kitobni tanlang:"
+    )
+    await message.answer(text=text, parse_mode="HTML", reply_markup=get_top_books_kb(top_books))
+
+
+@router.message(Command("help"))
+async def cmd_help(message: Message, is_admin: bool = False) -> None:
+    """/help yordam buyrug'i"""
+    help_text = (
+        "📖 <b>BOTDAN FOYDALANISH BO'YICHA QO'LLANMA</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<b>Asosiy buyruqlar:</b>\n"
+        "• /start — Botni ishga tushirish va bosh sahifa\n"
+        "• /search — Kitob nomi yoki muallif bo'yicha qidiruv\n"
+        "• /top — Eng mashhur Top-5 kitoblar ro'yxati\n"
+        "• /help — Botdan foydalanish yo'riqnomasi\n"
+    )
+    if is_admin:
+        help_text += "• /admin — Administrator boshqaruv paneli\n"
+
+    help_text += (
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <b>Qidiruv bo'yicha maslahatlar:</b>\n"
+        "1. Qidiruvda katta yoki kichik harf muhim emas.\n"
+        "2. Kitob nomining bir qismini yozsangiz ham bot uni topadi.\n"
+        "3. Istalgan chatda <code>@online_libraries_bot kitob_nomi</code> deb yozib kitoblarni do'stlaringizga ulashishingiz mumkin."
+    )
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔍 Kitob qidirish", callback_data="search_book")],
+            [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="back_to_home")]
+        ]
+    )
+    await message.answer(text=help_text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.callback_query(F.data == "back_to_home")
@@ -84,12 +192,12 @@ async def admin_open_from_start(callback: CallbackQuery, state: FSMContext, is_a
         return
 
     admin_text = (
-        "⚡️ <b>ADMINISTRATOR BOSHQARUV PANELI</b>\n"
+        "⚡️ <b>ADMINISTRATOR BOSHQARUV PANELI</b> 👑\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👤 <b>Admin:</b> {callback.from_user.full_name}\n"
         f"🆔 <b>Telegram ID:</b> <code>{callback.from_user.id}</code>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Kerakli bo'limni tanlang:"
+        "Quyidagi boshqaruv bo'limlaridan birini tanlang:"
     )
     try:
         await callback.message.edit_text(text=admin_text, parse_mode="HTML", reply_markup=get_admin_main_kb())
@@ -270,9 +378,7 @@ async def download_book_pdf(callback: CallbackQuery, session: AsyncSession) -> N
         await callback.answer("⚠️ Kechirasiz, kitob fayli topilmadi.", show_alert=True)
         return
 
-    # Yuklab olishlar sonini 1 taga oshiramiz
     downloads = await increment_downloads(session, book_id)
-
     await callback.answer("📥 Kitob yuborilmoqda, kuting...", show_alert=False)
 
     doc_caption = (
@@ -352,6 +458,60 @@ async def show_about_bot(callback: CallbackQuery, session: AsyncSession, is_admi
     except Exception:
         await callback.message.answer(text=about_text, parse_mode="HTML", reply_markup=kb)
     await callback.answer()
+
+
+# ==============================================================
+# INLINE MODE QIDIRUV (Istalgan chatda kitob qidirish va ulashish)
+# ==============================================================
+
+@router.inline_query()
+async def inline_book_search(inline_query: InlineQuery, session: AsyncSession) -> None:
+    """
+    Foydalanuvchi istalgan chatda @online_libraries_bot deb yozganida
+    tezkor kitob qidiruv natijalarini taqdim etish.
+    """
+    query = inline_query.query.strip()
+    if not query:
+        # Bo'sh bo'lsa top kitoblarni chiqaramiz
+        books = await get_top_downloaded_books(session, limit=10)
+    else:
+        books, _ = await search_books(session=session, query=query, limit=10, offset=0)
+
+    results = []
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    for book in books:
+        share_text = (
+            f"📖 <b>{book.title}</b>\n"
+            f"✍️ <b>Muallif:</b> {book.author}\n\n"
+            f"📝 <b>Tavsif:</b>\n{book.description}\n\n"
+            "📥 <i>Ushbu kitobni bot orqali bepul yuklab oling:</i>"
+        )
+        bot_username = "online_libraries_bot"
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📥 PDF yuklab olish",
+                        url=f"https://t.me/{bot_username}?start=book_{book.id}"
+                    )
+                ]
+            ]
+        )
+        results.append(
+            InlineQueryResultArticle(
+                id=str(book.id),
+                title=f"{book.title} — {book.author}",
+                description=f"Yuklangan: {book.downloads_count} marta | {book.description[:60]}...",
+                input_message_content=InputTextMessageContent(
+                    message_text=share_text,
+                    parse_mode="HTML"
+                ),
+                reply_markup=kb
+            )
+        )
+
+    await inline_query.answer(results=results, cache_time=10, is_personal=True)
 
 
 @router.callback_query(F.data == "noop")
