@@ -1,0 +1,7 @@
+aiogram>=3.17.0
+sqlalchemy[asyncio]>=2.0.36
+greenlet>=3.1.1
+asyncpg>=0.30.0
+aiosqlite>=0.20.0
+python-dotenv>=1.0.1
+pydantic-settings>=2.7.0
