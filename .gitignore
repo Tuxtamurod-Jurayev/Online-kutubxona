@@ -13,6 +13,8 @@ __pycache__/
 
 # Database files (SQLite)
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Logs

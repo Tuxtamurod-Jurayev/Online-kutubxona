@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: online-kutubxona-bot
+    runtime: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///bot.db
+      - key: RATE_LIMIT
+        value: "1.0"
